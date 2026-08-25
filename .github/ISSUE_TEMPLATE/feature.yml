@@ -1,0 +1,23 @@
+name: Operational improvement
+description: Propose a measurable restaurant-workflow improvement
+title: "feat: "
+body:
+  - type: textarea
+    attributes:
+      label: Service problem
+      description: What happens during cashier, kitchen or floor operations?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected outcome
+      description: What should improve for staff or customers?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Acceptance criteria
+      description: List testable completion conditions.
+    validations:
+      required: true
+
