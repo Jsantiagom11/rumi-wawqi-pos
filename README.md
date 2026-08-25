@@ -6,6 +6,8 @@
 
 Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without a server, printer or permanent internet connection.
 
+**[Read the real operational case study →](docs/case-study.md)**
+
 ## Business problem
 
 Rumi Wawqi serves regular weekends and high-volume events. The operation needs a resilient way to coordinate tables, kitchen tickets, menu stock, cash closure and sales reporting even when connectivity is unreliable.
