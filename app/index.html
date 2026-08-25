@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Rumi Wawqi POS — Control Estricto Offline</title>
+    <style>
+        :root {
+            --bg: #09090b;
+            --panel: #18181b;
+            --input: #27272a;
+            --border: #2e2e33;
+            --text: #f4f4f5;
+            --text-muted: #71717a;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #fbbf24;
+        }
+
+        * { 
+            box-sizing: border-box; margin: 0; padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
+        }
+
+        body { 
+            background-color: var(--bg); color: var(--text); padding: 20px; 
+            height: 100vh; display: flex; flex-direction: column;
+            position: fixed; overflow: hidden; width: 100%;
+        }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.3px; }
+        #reloj { color: var(--text-muted); font-size: 0.85rem; font-family: monospace; }
+
+        .workspace { display: grid; grid-template-columns: 1fr 1.2fr 1.4fr; gap: 16px; flex: 1; overflow: hidden; }
+        .column { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; overflow: hidden; }
+        .column h2 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; letter-spacing: 0.5px; }
+        .scrollable { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+        .filter-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 12px; }
+        .filter-btn { background: var(--input); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.75rem; padding: 8px 0; border-radius: 4px; touch-action: manipulation; font-weight: 500; }
+        .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(56, 189, 248, 0.05); }
+
+        .grid-mesas { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+        .mesa-btn { 
+            background: var(--input); border: 1px solid var(--border); height: 65px; border-radius: 6px; 
+            display: flex; justify-content: center; align-items: center; touch-action: manipulation; transition: all 0.15s ease;
+        }
+        .mesa-btn.ocupada { border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.02); }
+        .mesa-btn.libre { border-left: 4px solid var(--success); background: rgba(34, 197, 94, 0.02); }
+        .mesa-btn.selected { border: 1.5px solid var(--accent); background: rgba(56, 189, 248, 0.05); }
+        .mesa-btn.bloqueada { opacity: 0.12; border: 1px dashed var(--border); background: rgba(0, 0, 0, 0.4); pointer-events: none; }
+        
+        .mesa-nombre-edit { background: transparent; border: none; color: #fff; text-align: center; font-weight: 600; width: 90%; font-size: 0.85rem; outline: none; }
+        .mesa-nombre-edit:focus { color: var(--accent); border-bottom: 1px solid var(--accent); }
+
+        .plato-row { 
+            background: var(--input); border: 1px solid var(--border); border-radius: 6px; padding: 12px; 
+            margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; touch-action: manipulation;
+        }
+        .plato-row:active { background: #2e2e33 !important; }
+        .plato-row.agotado { opacity: 0.25; border-left: 3px solid var(--danger); pointer-events: none; }
+        .plato-info { display: flex; flex-direction: column; gap: 2px; }
+        .plato-nombre { font-size: 0.9rem; font-weight: 500; }
+        .plato-meta { font-size: 0.78rem; color: var(--text-muted); }
+        
+        .stock-control { display: flex; align-items: center; gap: 4px; }
+        .stock-btn { background: var(--border); border: none; color: var(--text); width: 38px; height: 38px; border-radius: 6px; font-size: 1.1rem; font-weight: bold; touch-action: manipulation; }
+        .stock-btn:active { background: var(--input); }
+
+        input.custom-input, textarea.custom-textarea {
+            width: 100%; background: var(--input); border: 1px solid var(--border); 
+            color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; outline: none;
+        }
+        textarea.custom-textarea { resize: none; height: 50px; font-family: inherit; }
+
+        .ticket-cocina { background: var(--input); border-left: 3px solid var(--warning); padding: 10px; border-radius: 4px; margin-bottom: 8px; font-size: 0.85rem; }
+        .ticket-header { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 600; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 10px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 0.72rem; }
+
+        .btn-action { 
+            background: var(--accent); color: #000; border: none; height: 44px; border-radius: 6px; 
+            font-weight: 600; font-size: 0.85rem; width: 100%; margin-top: 6px;
+            display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+        }
+        .btn-action:active { opacity: 0.8; transform: scale(0.99); }
+        .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+        .btn-pool { background: transparent; border: 1px dashed var(--accent); color: var(--accent); }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(4px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: var(--panel); border: 1px solid var(--border); width: 85%; max-width: 700px;
+            height: 80vh; border-radius: 12px; padding: 24px; display: flex; flex-direction: column;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; }
+
+        .kpi-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .kpi-card { background: var(--input); border: 1px solid var(--border); padding: 14px; border-radius: 6px; text-align: center; }
+        .kpi-val { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .kpi-val.success { color: var(--success); }
+
+        .chart-container { background: var(--input); border: 1px solid var(--border); padding: 16px; border-radius: 6px; margin-bottom: 20px; }
+        .chart-title { font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+        .bar-chart { display: flex; justify-content: space-between; align-items: flex-end; height: 100px; }
+        .bar-wrapper { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .bar { width: 50%; background: var(--accent); border-radius: 2px 2px 0 0; position: relative; min-height: 2px; }
+        .bar-label { font-size: 0.65rem; color: var(--text-muted); margin-top: 6px; font-family: monospace; }
+        .bar-tooltip { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 0.6rem; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Rumi Wawqi POS — Control Estricto Offline</h1>
+        <div id="reloj">--:--:--</div>
+    </header>
+
+    <div class="workspace">
+        <div class="column" id="org-mesas"></div>
+        <div class="column" id="org-carta"></div>
+        <div class="column" id="org-despacho"></div>
+    </div>
+
+    <div id="modal-reporte" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Resumen Técnico de Caja</h2>
+                <button class="modal-close" onclick="analyticsManager.cerrarModal()">&times;</button>
+            </div>
+            <div class="scrollable">
+                <div class="kpi-container">
+                    <div class="kpi-card"><span>Venta Total</span><div id="kpi-ingreso" class="kpi-val success">S/ 0.00</div></div>
+                    <div class="kpi-card"><span>Mesas Cerradas</span><div id="kpi-tickets" class="kpi-val">0</div></div>
+                    <div class="kpi-card"><span>Ticket Medio</span><div id="kpi-ticket-medio" class="kpi-val">S/ 0.00</div></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Distribución de Ingresos por Bloque Horario</div>
+                    <div id="grafico-tiempo" class="bar-chart"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Mix de Productos Vendidos</div>
+                    <table id="tabla-ranking">
+                        <thead><tr><th>Producto</th><th style="text-align:center;">Cant.</th><th style="text-align:right;">Total</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CARTA_ESTANDAR = [
+            { id: "p1", nombre: "Ensalada de Tarwi", precio: 10.00, stock: 15 },
+            { id: "p2", nombre: "Chancho al Palo", precio: 35.00, stock: 20 },
+            { id: "p3", nombre: "Ceviche de Trucha", precio: 35.00, stock: 15 },
+            { id: "p4", nombre: "Trucha Frita Entera", precio: 35.00, stock: 15 },
+            { id: "p5", nombre: "Pachamanca", precio: 40.00, stock: 25 },
+            { id: "p6", nombre: "Pollo a la Plancha", precio: 30.00, stock: 15 },
+            { id: "p7", nombre: "Lomo Saltado", precio: 40.00, stock: 20 },
+            { id: "b1", nombre: "Gaseosa (1 L)", precio: 10.00, stock: 30 },
+            { id: "b2", nombre: "Gaseosa (3 L)", precio: 20.00, stock: 15 },
+            { id: "b3", nombre: "Cerveza (Pilsen/Cusqueña)", precio: 10.00, stock: 40 },
+            { id: "b4", nombre: "Emoliente (1 L)", precio: 12.00, stock: 20 },
+            { id: "b5", nombre: "Gaseosa Personal", precio: 3.00, stock: 50 },
+            { id: "b6", nombre: "Agua Mineral", precio: 3.00, stock: 40 }
+        ];
+
+        let db = JSON.parse(localStorage.getItem('rumi_wawqi_offline_db')) || {
+            platos: JSON.parse(JSON.stringify(CARTA_ESTANDAR)),
+            mesas: [{ id: "M1", nombre: "Mesa 1", estado: 'libre', orden: [], detalle: "" }],
+            cocina: [],
+            historial: [],
+            cierres: [],
+            schemaVersion: 2
+        };
+
+        // Migración no destructiva para instalaciones que ya operan en el iPad.
+        db.historial = Array.isArray(db.historial) ? db.historial : [];
+        db.cierres = Array.isArray(db.cierres) ? db.cierres : [];
+        db.schemaVersion = 2;
+
+        let mesaActiva = null;
+        let filtroMesaActual = 'todas';
+
+        function syncDB() {
+            localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
+            renderArchitecture();
+        }
+
+        const Atoms = {
+            InputMesa: (id, nombre, disabled) => `
+                <input type="text" class="mesa-nombre-edit" value="${nombre}" 
+                    onclick="event.stopPropagation();" 
+                    onblur="Organisms.ColumnMesas.handleRename('${id}', this.value)"
+                    ${disabled ? 'disabled' : ''} />
+            `,
+            StockButton: (id, label, cambio) => `
+                <button class="stock-btn" onclick="Organisms.ColumnCarta.handleStock('${id}', ${cambio}, event)">${label}</button>
+            `
+        };
+
+        const Molecules = {
+            MesaCell: (mesa, isSelected, esBloqueada) => {
+                const claseEstado = esBloqueada ? 'bloqueada' : mesa.estado;
+                const claseSel = isSelected ? 'selected' : '';
+                return `
+                    <div class="mesa-btn ${claseEstado} ${claseSel}" onclick="Organisms.ColumnMesas.handleSelect('${mesa.id}')">
+                        ${Atoms.InputMesa(mesa.id, mesa.nombre || mesa.id, esBloqueada)}
+                    </div>
+                `;
+            },
+            PlatoRow: (p) => {
+                const isAgotado = p.stock === 0 ? 'agotado' : '';
+                return `
+                    <div class="plato-row ${isAgotado}" onclick="Organisms.ColumnCarta.handleAdd('${p.id}')">
+                        <div class="plato-info">
+                            <span class="plato-nombre">${p.nombre}</span>
+                            <span class="plato-meta">S/ ${p.precio.toFixed(2)} — ${p.stock === 0 ? 'AGOTADO' : 'Stock: '+p.stock}</span>
+                        </div>
+                        <div class="stock-control">
+                            ${Atoms.StockButton(p.id, '-', -1)}
+                            ${Atoms.StockButton(p.id, '+', 1)}
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const Organisms = {
+            ColumnMesas: {
+                render() {
+                    const ultima = db.mesas[db.mesas.length - 1];
+                    if (ultima && (ultima.estado === 'ocupada' || ultima.orden.length > 0) && db.mesas.length < 24) {
+                        const sig = db.mesas.length + 1;
+                        db.mesas.push({ id: `M${sig}`, nombre: `Mesa ${sig}`, estado: 'libre', orden: [], detalle: "" });
+                        localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
+                    }
+
+                    let html = `
+                        <h2>Salón / Control Mesas</h2>
+                        <div class="filter-bar">
+                            <button class="filter-btn ${filtroMesaActual === 'todas'?'active':''}" onclick="Organisms.ColumnMesas.handleFilter('todas')">Todas</button>
+                            <button class="filter-btn ${filtroMesaActual === 'libre'?'active':''}" onclick="Organisms.ColumnMesas.handleFilter('libre')">Libres</button>
+                            <button class="filter-btn ${filtroMesaActual === 'ocupada'?'active':''}" onclick="Organisms.ColumnMesas.handleFilter('ocupada')">Ocupadas</button>
+                        </div>
+                        <div class="scrollable"><div class="grid-mesas">
+                    `;
+
+                    html += db.mesas.map((m, index) => {
+                        let esBloqueada = index > 0 && db.mesas[index - 1].estado === 'libre' && db.mesas[index - 1].orden.length === 0;
+                        if (!esBloqueada && filtroMesaActual !== 'todas' && m.estado !== filtroMesaActual) return '';
+                        return Molecules.MesaCell(m, mesaActiva === m.id, esBloqueada);
+                    }).join('');
+
+                    html += `</div></div>`;
+                    document.getElementById('org-mesas').innerHTML = html;
+                },
+                handleSelect(id) { mesaActiva = id; renderArchitecture(); },
+                handleRename(id, text) { 
+                    const m = db.mesas.find(x => x.id === id);
+                    if (m && text.trim() !== "") { m.nombre = text.trim(); syncDB(); }
+                },
+                handleFilter(f) { filtroMesaActual = f; this.render(); }
+            },
+
+            ColumnCarta: {
+                render() {
+                    let html = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <h2>Menú de Hoy</h2>
+                            <span style="font-size:0.7rem; color:var(--text-muted); cursor:pointer; text-decoration:underline;" onclick="Organisms.ColumnCarta.handleResetStock()">Reset Stock</span>
+                        </div>
+                        <div class="scrollable">
+                    `;
+                    html += db.platos.map(p => Molecules.PlatoRow(p)).join('');
+                    html += `</div>
+                        <div style="border-top:1px solid var(--border); padding-top:12px;">
+                            <span style="font-size:0.75rem; text-transform:uppercase; color:var(--accent); margin-bottom:8px; display:block;">Plato Especial (Pool Dinámico)</span>
+                            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:6px; margin-bottom:6px;">
+                                <input type="text" id="pool-desc" class="custom-input" placeholder="Descripción">
+                                <input type="number" id="pool-cant" class="custom-input" placeholder="Cant." value="1">
+                                <input type="number" id="pool-precio" class="custom-input" placeholder="Precio">
+                            </div>
+                            <button class="btn-action btn-pool" style="height:36px; margin-top:0;" onclick="Organisms.ColumnCarta.handleInyectPool()">+ Inyectar a Comanda</button>
+                        </div>
+                    `;
+                    document.getElementById('org-carta').innerHTML = html;
+                },
+                handleStock(id, cambio, e) {
+                    e.stopPropagation();
+                    const p = db.platos.find(x => x.id === id);
+                    if(p) { p.stock = Math.max(0, p.stock + cambio); syncDB(); }
+                },
+                handleAdd(id) {
+                    if (!mesaActiva) {
+                        alert("⚠️ Selecciona una mesa en la columna izquierda antes de agregar un pedido.");
+                        return;
+                    }
+                    const p = db.platos.find(x => x.id === id);
+                    if (p.stock <= 0) {
+                        alert(`🚫 Stock agotado para: ${p.nombre}`);
+                        return;
+                    }
+                    
+                    const m = db.mesas.find(x => x.id === mesaActiva);
+                    m.estado = 'ocupada';
+                    p.stock--; 
+
+                    const exist = m.orden.find(o => o.id === id && !o.enviadoCocina);
+                    if (exist) {
+                        exist.cantidad++;
+                    } else {
+                        m.orden.push({ 
+                            id: id, 
+                            nombre: p.nombre, 
+                            precio: p.precio, 
+                            cantidad: 1, 
+                            enviadoCocina: false,
+                            esManual: false,
+                            creadoEn: new Date().toISOString()
+                        });
+                    }
+                    syncDB();
+                },
+                handleInyectPool() {
+                    if (!mesaActiva) { alert("⚠️ Seleccione una mesa primero."); return; }
+                    const desc = document.getElementById('pool-desc').value.trim();
+                    const cant = parseInt(document.getElementById('pool-cant').value) || 0;
+                    const pre = parseFloat(document.getElementById('pool-precio').value) || 0;
+                    
+                    if(!desc || cant <= 0 || pre <= 0) { alert("Completa los datos del ítem especial."); return; }
+
+                    const m = db.mesas.find(x => x.id === mesaActiva);
+                    m.estado = 'ocupada';
+                    
+                    const nombrePool = `[Esp] ${desc}`;
+                    const exist = m.orden.find(o => o.nombre === nombrePool && o.precio === pre && !o.enviadoCocina);
+                    
+                    if (exist) {
+                        exist.cantidad += cant;
+                    } else {
+                        m.orden.push({ 
+                            id: 'm_' + Date.now(), 
+                            nombre: nombrePool, 
+                            precio: pre, 
+                            cantidad: cant, 
+                            enviadoCocina: false,
+                            esManual: true,
+                            creadoEn: new Date().toISOString()
+                        });
+                    }
+
+                    document.getElementById('pool-desc').value = '';
+                    document.getElementById('pool-cant').value = '1';
+                    document.getElementById('pool-precio').value = '';
+                    syncDB();
+                },
+                handleResetStock() {
+                    if(confirm("¿Restablecer stock completo de la carta?")) {
+                        db.platos = JSON.parse(JSON.stringify(CARTA_ESTANDAR)); syncDB();
+                    }
+                }
+            },
+
+            ColumnDespacho: {
+                render() {
+                    const mesa = db.mesas.find(x => x.id === mesaActiva);
+                    
+                    let tktHtml = db.cocina.map(c => `
+                        <div class="ticket-cocina">
+                            <div class="ticket-header"><span>${c.nombreMesa}</span><span style="color:var(--success); font-weight:bold; cursor:pointer;" onclick="Organisms.ColumnDespacho.handleClearTicket(${c.id})">✓ Listo</span></div>
+                            <div style="font-size:0.8rem; white-space:pre-line;">${c.desc}</div>
+                        </div>
+                    `).join('');
+
+                    let comandaRows = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center; padding: 20px 0;">Mesa vacía — Sin ítems</td></tr>';
+                    let totalStr = "S/ 0.00";
+                    let titulo = "Seleccione una mesa";
+                    let displayDetalle = "none";
+                    let txtDetalle = "";
+
+                    if(mesa) {
+                        titulo = `Cuenta Activa — ${mesa.nombre || mesa.id}`;
+                        displayDetalle = "block";
+                        txtDetalle = mesa.detalle || "";
+                        
+                        if(mesa.orden.length > 0) {
+                            comandaRows = mesa.orden.map((o, idx) => {
+                                const controlesDeshabilitados = o.enviadoCocina ? 'disabled style="opacity:0.2;"' : '';
+                                const estiloFila = o.enviadoCocina ? 'style="color:var(--text-muted); font-style: italic;"' : '';
+                                
+                                return `
+                                    <tr ${estiloFila}>
+                                        <td style="padding: 12px 4px;">
+                                            ${o.nombre} ${o.enviadoCocina ? '<span style="color:var(--success); font-size:0.75rem;">✓</span>' : ''}
+                                        </td>
+                                        <td>
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <button class="stock-btn" style="width:28px; height:28px; font-size:0.9rem;" ${controlesDeshabilitados} onclick="Organisms.ColumnDespacho.modificarCantidad('${o.id}', ${idx}, -1)">-</button>
+                                                <span style="min-width:16px; text-align:center; font-weight:600;">${o.cantidad}</span>
+                                                <button class="stock-btn" style="width:28px; height:28px; font-size:0.9rem;" ${controlesDeshabilitados} onclick="Organisms.ColumnDespacho.modificarCantidad('${o.id}', ${idx}, 1)">+</button>
+                                            </div>
+                                        </td>
+                                        <td style="text-align:right; font-weight:500;">S/ ${(o.precio * o.cantidad).toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('');
+                        }
+                        totalStr = `S/ ${mesa.orden.reduce((a,b)=>a+(b.precio*b.cantidad),0).toFixed(2)}`;
+                    }
+
+                    document.getElementById('org-despacho').innerHTML = `
+                        <h2>Línea Activa & Cierre</h2>
+                        <div style="height:25%; border-bottom:1px solid var(--border); padding-bottom:10px;" class="scrollable">
+                            ${tktHtml}
+                        </div>
+                        <div style="height:75%; padding-top:10px; display:flex; flex-direction:column; justify-content:space-between;">
+                            <div style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+                                <span style="font-size:0.85rem; font-weight:600; color:var(--accent);">${titulo}</span>
+                                <div style="margin: 6px 0; display:${displayDetalle};">
+                                    <textarea id="detalles-mesa" class="custom-textarea" placeholder="Especificaciones de cocina..." oninput="Organisms.ColumnDespacho.handleLiveNotes(this.value)">${txtDetalle}</textarea>
+                                </div>
+                                <div class="scrollable" style="background:rgba(0,0,0,0.15); padding:6px; border-radius:4px; border: 1px solid var(--border);">
+                                    <table>
+                                        <thead><tr><th>Item</th><th>Cant.</th><th style="text-align:right;">Total</th></tr></thead>
+                                        <tbody>${comandaRows}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div>
+                                <div style="display:flex; justify-content:space-between; font-weight:600; margin:12px 0 6px 0; font-size:1.15rem; border-top: 1px solid var(--border); padding-top:10px;">
+                                    <span>Total Cuenta:</span><span style="color:var(--accent);">${totalStr}</span>
+                                </div>
+                                <button class="btn-action" onclick="Organisms.ColumnDespacho.handleSendCocina()">Comandar a Cocina</button>
+                                <button class="btn-action btn-danger" onclick="Organisms.ColumnDespacho.handleCloseMesa()">Cerrar y liberar mesa</button>
+                                <div style="margin-top:10px; border-top:1px dashed var(--border); padding-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem;" onclick="analyticsManager.renderReporteVisual()">Ver Reporte</button>
+                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem; border-color:var(--success); color:var(--success);" onclick="analyticsManager.exportarCierreCaja()">Respaldar turno</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                },
+
+                modificarCantidad(itemId, index, cambio) {
+                    if (!mesaActiva) return;
+                    const m = db.mesas.find(x => x.id === mesaActiva);
+                    const item = m.orden[index];
+
+                    if (!item || item.enviadoCocina) return; 
+
+                    if (cambio === 1) {
+                        if (!item.esManual) {
+                            const platoOriginal = db.platos.find(p => p.id === item.id);
+                            if (platoOriginal.stock <= 0) {
+                                alert("🚫 No queda más stock de este producto en inventario.");
+                                return;
+                            }
+                            platoOriginal.stock--;
+                        }
+                        item.cantidad++;
+                    } else if (cambio === -1) {
+                        if (!item.esManual) {
+                            const platoOriginal = db.platos.find(p => p.id === item.id);
+                            platoOriginal.stock++;
+                        }
+                        item.cantidad--;
+                        
+                        if (item.cantidad === 0) {
+                            m.orden.splice(index, 1);
+                        }
+                    }
+
+                    if (m.orden.length === 0) m.estado = 'libre';
+                    syncDB();
+                },
+
+                handleLiveNotes(text) {
+                    if(!mesaActiva) return;
+                    db.mesas.find(x => x.id === mesaActiva).detalle = text;
+                    localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
+                },
+                
+                handleClearTicket(id) { db.cocina = db.cocina.filter(c => c.id !== id); syncDB(); },
+                
+                handleSendCocina() {
+                    if(!mesaActiva) return;
+                    const m = db.mesas.find(x => x.id === mesaActiva);
+                    const nuevos = m.orden.filter(o => !o.enviadoCocina);
+                    if(nuevos.length === 0) { alert("No hay platos nuevos para comandar."); return; }
+
+                    db.cocina.push({
+                        id: Date.now(),
+                        creadoEn: new Date().toISOString(),
+                        nombreMesa: m.nombre || m.id,
+                        desc: nuevos.map(n => `${n.cantidad}x ${n.nombre}`).join(', ') + (m.detalle ? `\n⚠️ ${m.detalle}` : '')
+                    });
+                    nuevos.forEach(o => o.enviadoCocina = true);
+                    syncDB();
+                },
+                
+                handleCloseMesa() {
+                    if(!mesaActiva) return;
+                    const m = db.mesas.find(x => x.id === mesaActiva);
+                    if(m.orden.length === 0) { this.reset(m); return; }
+
+                    const total = m.orden.reduce((a,b)=>a+(b.precio*b.cantidad),0);
+                    if(confirm(`¿Cerrar Cuenta? Total: S/ ${total.toFixed(2)}`)) {
+                        db.historial.push({
+                            id: Date.now(),
+                            cerradoEn: new Date().toISOString(),
+                            fecha: new Date().toLocaleString('es-PE'),
+                            mesa: m.nombre || m.id,
+                            items: m.orden.map(o => ({ nombre: o.nombre, cantidad: o.cantidad, precio: o.precio })),
+                            total: total
+                        });
+                        this.reset(m);
+                    }
+                },
+                
+                reset(m) { m.estado = 'libre'; m.orden = []; m.detalle = ""; mesaActiva = null; syncDB(); }
+            }
+        };
+
+        const analyticsManager = {
+            renderReporteVisual() {
+                if(db.historial.length === 0) { alert("Sin ventas procesadas en este turno."); return; }
+                const subtotal = db.historial.reduce((a,b)=>a+b.total,0);
+                
+                document.getElementById('kpi-ingreso').innerText = `S/ ${subtotal.toFixed(2)}`;
+                document.getElementById('kpi-tickets').innerText = db.historial.length;
+                document.getElementById('kpi-ticket-medio').innerText = `S/ ${(subtotal/db.historial.length).toFixed(2)}`;
+
+                const ranking = {};
+                db.historial.forEach(h => h.items.forEach(i => {
+                    if(!ranking[i.nombre]) ranking[i.nombre] = { c: 0, t: 0 };
+                    ranking[i.nombre].c += i.cantidad;
+                    ranking[i.nombre].t += (i.precio * i.cantidad);
+                }));
+
+                document.querySelector('#tabla-ranking tbody').innerHTML = Object.keys(ranking)
+                    .map(k => ({n: k, c: ranking[k].c, t: ranking[k].t}))
+                    .sort((a,b)=>b.t - a.t)
+                    .map(x => `<tr><td>${x.n}</td><td style="text-align:center;">${x.c}</td><td style="text-align:right; color:var(--success);">S/ ${x.t.toFixed(2)}</td></tr>`)
+                    .join('');
+
+                this.renderGrafico();
+                document.getElementById('modal-reporte').style.display = 'flex';
+            },
+            renderGrafico() {
+                const bloques = { "11-13": 0, "13-15": 0, "15-17": 0, "Otros": 0 };
+                db.historial.forEach(h => {
+                    try {
+                        const hros = parseInt(h.fecha.split(' ')[1].split(':')[0]);
+                        if(hros >= 11 && hros < 13) bloques["11-13"] += h.total;
+                        else if(hros >= 13 && hros < 15) bloques["13-15"] += h.total;
+                        else if(hros >= 15 && hros < 17) bloques["15-17"] += h.total;
+                        else bloques["Otros"] += h.total;
+                    } catch(e) { bloques["Otros"] += h.total; }
+                });
+
+                const max = Math.max(...Object.values(bloques), 1);
+                document.getElementById('grafico-tiempo').innerHTML = Object.keys(bloques).map(b => `
+                    <div class="bar-wrapper">
+                        <div class="bar" style="height:${(bloques[b]/max)*100}%;"><span class="bar-tooltip">${bloques[b]>0?'S/'+Math.round(bloques[b]):''}</span></div>
+                        <span class="bar-label">${b}</span>
+                    </div>
+                `).join('');
+            },
+            exportarCierreCaja() {
+                if(db.historial.length === 0) { alert("No hay datos históricos que exportar en este turno."); return; }
+                if(confirm("¿Descargar un respaldo del turno? El historial permanecerá guardado en el iPad.")) {
+                    const cierre = {
+                        id: `cierre_${Date.now()}`,
+                        generadoEn: new Date().toISOString(),
+                        cantidadTickets: db.historial.length,
+                        total: db.historial.reduce((s, venta) => s + venta.total, 0),
+                        ventas: JSON.parse(JSON.stringify(db.historial))
+                    };
+                    db.cierres.push(cierre);
+                    const blob = new Blob([JSON.stringify(cierre, null, 2)], {type: "application/json"});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `respaldo_rumi_wawqi_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    syncDB();
+                }
+            },
+            cerrarModal() { document.getElementById('modal-reporte').style.display = 'none'; }
+        };
+
+        function renderArchitecture() {
+            Organisms.ColumnMesas.render();
+            Organisms.ColumnCarta.render();
+            Organisms.ColumnDespacho.render();
+        }
+
+        setInterval(() => { document.getElementById('reloj').innerText = new Date().toLocaleTimeString(); }, 1000);
+        renderArchitecture();
+    </script>
+</body>
+</html>
