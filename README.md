@@ -1,5 +1,9 @@
 # Rumi Wawqi POS
 
+[![Quality](https://github.com/Jsantiagom11/rumi-wawqi-pos/actions/workflows/quality.yml/badge.svg)](https://github.com/Jsantiagom11/rumi-wawqi-pos/actions/workflows/quality.yml)
+![Offline first](https://img.shields.io/badge/architecture-offline--first-10283a)
+![License](https://img.shields.io/badge/license-MIT-4fe1a1)
+
 Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without a server, printer or permanent internet connection.
 
 ## Business problem
@@ -75,7 +79,8 @@ The regression suite protects the highest-risk invariants: backups cannot erase 
 - Inventory movements and waste tracking
 - Import/export recovery screen
 
+See [CHANGELOG.md](CHANGELOG.md) for released capabilities and safety changes.
+
 ## Context
 
 This is a real operational product, not a synthetic tutorial. It demonstrates offline product design, workflow automation, inventory control, resilience and delivery decisions under practical infrastructure constraints.
-
