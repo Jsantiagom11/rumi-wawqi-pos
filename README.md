@@ -20,7 +20,9 @@ Rumi Wawqi serves regular weekends and high-volume events. The operation needs a
 - Dynamic off-menu items
 - Cash totals, average ticket and product mix
 - Offline persistence through `localStorage`
-- Non-destructive JSON shift backups
+- Checksummed JSON shift backups and validated recovery
+- Explicit backup-before-finalization workflow
+- Revision checks that reject stale writes from another tab
 - ISO timestamps and audit-friendly closure snapshots
 
 ## Operational flow
@@ -32,7 +34,8 @@ flowchart TD
     C --> D[Send kitchen ticket]
     D --> E[Close table]
     E --> F[Sales history]
-    F --> G[Shift backup]
+    F --> G[Checksummed backup]
+    G --> H[Finalize and archive shift]
 ```
 
 ## Run locally
@@ -43,7 +46,7 @@ The application has no runtime dependencies.
 npm run serve
 ```
 
-Open `http://localhost:8080`. It can also run directly from `app/index.html`.
+Open `http://localhost:8080`. Keep `index.html` and `core.js` together when copying the offline application.
 
 ## Test
 
@@ -53,33 +56,39 @@ Requires Node.js 20+.
 npm test
 ```
 
-The regression suite protects the highest-risk invariants: backups cannot erase sales, operational events retain timestamps and legacy iPad data migrates without destructive resets.
+The suite exercises corrupted storage, schema migration, stale writers, quota failures,
+backup tampering, active-order finalization blocks, recovery, output escaping and UI wiring.
+See [Rainy-day testing](docs/rainy-day-testing.md) for the complete matrix.
 
 ## Architecture decisions
 
 | Decision | Reason | Trade-off |
 |---|---|---|
-| Single-file application | Simple iPad deployment and offline recovery | Larger source file |
+| Browser UI plus testable core | Keeps offline deployment simple while making invariants executable | Two files must remain together |
 | `localStorage` | No server or account required | Device-local durability |
 | Stock reserved on order | Prevents overselling during service | Voided orders must restore stock |
-| Non-destructive backups | Protects revenue history | Requires explicit archival policy |
+| Checksummed backups | Detects truncation and modification before recovery | User must retain downloaded files |
+| Optimistic revision checks | Prevents silent cross-tab overwrites | A rejected action must be repeated |
 
-## Safety improvements in v2
+## Safety improvements in v3
 
 - Replaced destructive **Bajar Caja** behavior with persistent shift backups.
 - Added ISO timestamps to sales, orders and kitchen tickets.
-- Added a schema version and migration for existing device data.
+- Added validated schema migration and quarantine for corrupt local data.
+- Added backup checksums, explicit finalization and guarded recovery.
+- Added write verification, quota handling and cross-tab conflict detection.
+- Blocked table closure with items not yet sent to kitchen.
+- Escaped user-controlled content before rendering it into HTML.
 - Renamed misleading **Liberar e Imprimir** action because no printer integration exists.
 - Added automated regression checks for critical cash-history invariants.
 
 ## Roadmap
 
-- Explicit shift-finalization workflow with cashier authorization
 - IndexedDB persistence and automatic backup rotation
 - Receipt PDF generation and optional print adapter
 - Payment-method reconciliation
 - Inventory movements and waste tracking
-- Import/export recovery screen
+- Cashier authorization and signed closure approvals
 
 See [CHANGELOG.md](CHANGELOG.md) for released capabilities and safety changes.
 

@@ -1,26 +1,44 @@
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
 
-const source = await readFile(new URL('../app/index.html', import.meta.url), 'utf8');
+const source = await readFile(new URL("../app/index.html", import.meta.url), "utf8");
 
-test('cash backup never clears sales history', () => {
-  const exportBlock = source.slice(
-    source.indexOf('exportarCierreCaja() {'),
-    source.indexOf('cerrarModal()', source.indexOf('exportarCierreCaja() {')),
-  );
-  assert.ok(exportBlock.includes('db.cierres.push(cierre)'));
-  assert.ok(!exportBlock.includes('db.historial = []'));
+test("loads the validated core before application code", () => {
+  assert.match(source, /<script src="core\.js"><\/script>/);
+  assert.match(source, /RumiCore\.loadDatabase\(localStorage/);
+  assert.match(source, /RumiCore\.commitDatabase\(localStorage/);
 });
 
-test('sales and kitchen events have ISO timestamps', () => {
-  assert.ok(source.includes('cerradoEn: new Date().toISOString()'));
-  assert.ok(source.includes('creadoEn: new Date().toISOString()'));
+test("shift finalization downloads before mutating persisted history", () => {
+  const start = source.indexOf("finalizarTurno() {");
+  const end = source.indexOf("seleccionarRespaldo()", start);
+  const block = source.slice(start, end);
+  assert.ok(block.indexOf("this.descargar(backup)") < block.indexOf("RumiCore.finalizeShift"));
+  assert.match(block, /confirm\(`/);
 });
 
-test('legacy local data receives a non-destructive schema migration', () => {
-  assert.ok(source.includes('db.historial = Array.isArray(db.historial)'));
-  assert.ok(source.includes('db.cierres = Array.isArray(db.cierres)'));
-  assert.ok(source.includes('db.schemaVersion = 2'));
+test("recovery is wired to an explicit JSON file input", () => {
+  assert.match(source, /id="backup-file"/);
+  assert.match(source, /RumiCore\.recoverBackup/);
+  assert.match(source, /addEventListener\('change'/);
 });
 
+test("unsent kitchen items block table closure", () => {
+  const start = source.indexOf("handleCloseMesa() {");
+  const end = source.indexOf("\n                reset(m)", start);
+  assert.match(source.slice(start, end), /some\(item => !item\.enviadoCocina\)/);
+});
+
+test("cross-tab storage changes are handled", () => {
+  assert.match(source, /addEventListener\('storage'/);
+  assert.match(source, /refreshed\.db\.revision > persistedSnapshot\.revision/);
+});
+
+test("operational events use ISO timestamps and collision-resistant IDs", () => {
+  assert.match(source, /cerradoEn: new Date\(\)\.toISOString\(\)/);
+  assert.match(source, /creadoEn: new Date\(\)\.toISOString\(\)/);
+  assert.match(source, /uniqueId\('sale'\)/);
+  assert.match(source, /uniqueId\('kitchen'\)/);
+  assert.doesNotMatch(source, /id: Date\.now\(\)/);
+});
