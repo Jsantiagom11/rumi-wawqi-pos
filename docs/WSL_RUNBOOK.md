@@ -38,17 +38,29 @@ The command creates three independent artifacts:
 2. **Database after finalization** — archived closure + empty active history + new shift id.
 3. **Accounting snapshot** — immutable educational basis generated from the real closed sales.
 
-The commit phase refuses to run when there are active tables, pending kitchen tickets, an empty shift, a missing backup, or a stale backup created before state changed.
+The commit phase refuses to run when there are active tables, pending kitchen tickets, an empty shift, a missing backup, or a stale backup created before state changed. `prepareShiftFinalization()` also returns the canonical migrated database so callers can preserve shift identity across a delayed commit.
 
-## 4. Validate a recovery file
+## 4. Validate and apply recovery
+
+Validate first:
 
 ```bash
 npm run recovery:check -- .tmp/finalize-demo/backup_*.json
 ```
 
-Recovery validation is fail-closed. It checks backup kind/version, schema compatibility, a deterministic snapshot checksum and internal sale totals. Applying recovery also blocks silent overwrite when the current database has active table orders.
+Apply the validated backup to a **new output file**:
 
-The checksum detects accidental modification/corruption; it is **not** a cryptographic signature or authentication mechanism.
+```bash
+npm run recover -- current-db.json backup.json recovered-db.json
+```
+
+If the current database contains active table orders, recovery fails closed with `ACTIVE_TABLES_PRESENT`. The only bypass is explicit and should be used only after preserving the current state separately:
+
+```bash
+npm run recover -- current-db.json backup.json recovered-db.json --allow-active-overwrite
+```
+
+Recovery validation checks backup kind/version, schema compatibility, a deterministic snapshot checksum and internal sale totals. The checksum detects accidental modification/corruption; it is **not** a cryptographic signature or authentication mechanism.
 
 ## 5. Generate an Accounting Lab scenario
 
@@ -74,12 +86,14 @@ make check
 Protected invariants include:
 
 - decimal money normalization through integer cents;
-- non-destructive schema migration;
+- non-destructive and forward-compatible schema migration;
 - active-table and pending-kitchen finalization blocks;
 - immutable complete backup before finalization;
+- delayed two-phase commit with stable shift identity;
 - stale/foreign/corrupt backup rejection;
 - preservation of menu, tables and previous closures;
 - no silent recovery over active orders;
+- guarded CLI recovery to a separate output file;
 - malformed-JSON CLI behavior;
 - deterministic Accounting Lab scenarios;
 - legacy browser regression checks in `tests/regression.test.mjs`.
