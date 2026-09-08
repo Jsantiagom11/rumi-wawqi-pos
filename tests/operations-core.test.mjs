@@ -148,6 +148,23 @@ test('BOM capacity is constrained by ingredient stock', () => {
   assert.equal(capacity.constraints[0].ingredientId, 'pork');
 });
 
+test('tracked ingredients activate only after the first count and preserve legacy capacity before then', () => {
+  let db = baseDatabase();
+  db.operations.ingredients[0].openingQty = null;
+  db.operations.ingredients[0].openingAt = null;
+  db.operations.purchases = [];
+
+  const before = computeProductCapacity(db, db.platos[0]);
+  assert.equal(before.source, 'legacy-awaiting-count');
+  assert.equal(before.capacity, 20);
+  assert.equal(computeIngredientStock(db, 'pork').initialized, false);
+
+  db = recordPhysicalCount(db, { ingredientId: 'pork', qty: 7 }, new Date('2026-09-07T12:00:00.000Z'));
+  const after = computeProductCapacity(db, db.platos[0]);
+  assert.equal(after.source, 'derived-bom');
+  assert.equal(after.capacity, 17);
+});
+
 test('products without a BOM preserve legacy plate-stock behavior', () => {
   const capacity = computeProductCapacity(baseDatabase(), { id: 'p7', nombre: 'Lomo Saltado', stock: 8 });
   assert.equal(capacity.source, 'legacy-plate-stock');
