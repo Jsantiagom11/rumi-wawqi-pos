@@ -5,9 +5,10 @@
   "description": "Offline-first restaurant operations and point-of-sale dashboard",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:domain": "node --test tests/shift-core.test.mjs tests/two-phase.test.mjs tests/cli.test.mjs tests/recovery-cli.test.mjs",
+    "test:domain": "node --test tests/shift-core.test.mjs tests/two-phase.test.mjs tests/cli.test.mjs tests/recovery-cli.test.mjs tests/operations-core.test.mjs tests/operations-bootstrap.test.mjs",
     "test:regression": "node --test tests/regression.test.mjs",
-    "check": "node --check lib/shift-core.mjs && node --check cli/rumi-lab.mjs && npm test",
+    "build:operations": "node scripts/build-operations-ui.mjs",
+    "check": "node --check lib/shift-core.mjs && node --check lib/operations-core.mjs && node --check lib/operations-bootstrap.mjs && node --check lib/operations-browser-ui.mjs && node --check scripts/build-operations-ui.mjs && node --check cli/rumi-lab.mjs && npm test",
     "serve": "python3 -m http.server 8080 --directory app",
     "audit": "node cli/rumi-lab.mjs audit",
     "recovery:check": "node cli/rumi-lab.mjs recovery-check",

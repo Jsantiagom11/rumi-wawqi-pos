@@ -17,3 +17,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: make check
+      - name: Build integrated Operations POS
+        if: matrix.node-version == 22
+        run: npm run build:operations
+      - name: Upload integrated Operations POS
+        if: matrix.node-version == 22
+        uses: actions/upload-artifact@v7
+        with:
+          name: rumi-wawqi-pos-operations
+          path: dist/rumi-wawqi-pos-operations.html
+          if-no-files-found: error
+          retention-days: 14
