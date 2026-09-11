@@ -4,13 +4,13 @@
 ![Offline first](https://img.shields.io/badge/architecture-offline--first-10283a)
 ![License](https://img.shields.io/badge/license-MIT-4fe1a1)
 
-Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without a server, printer or permanent internet connection.
+Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without requiring a server, printer or permanent internet connection.
 
 **[Read the real operational case study →](docs/case-study.md)**
 
 ## Business problem
 
-Rumi Wawqi serves regular weekends and high-volume events. The operation needs a resilient way to coordinate tables, kitchen tickets, menu stock, cash closure and sales reporting even when connectivity is unreliable.
+Rumi Wawqi handles variable weekend demand and occasional higher-volume events. The operation needs a resilient way to coordinate tables, kitchen tickets, menu stock, cash closure and sales reporting even when connectivity is unreliable.
 
 ## What the system does
 
@@ -22,6 +22,8 @@ Rumi Wawqi serves regular weekends and high-volume events. The operation needs a
 - Offline persistence through `localStorage`
 - Non-destructive JSON shift backups
 - ISO timestamps and audit-friendly closure snapshots
+
+The stock values committed in the source are **demo seed values only**. Real operating stock and sales history stay on the device and are not versioned in this repository.
 
 ## Operational flow
 
@@ -85,4 +87,4 @@ See [CHANGELOG.md](CHANGELOG.md) for released capabilities and safety changes.
 
 ## Context
 
-This is a real operational product, not a synthetic tutorial. It demonstrates offline product design, workflow automation, inventory control, resilience and delivery decisions under practical infrastructure constraints.
+This is a real operational product, not a synthetic tutorial. Public documentation intentionally focuses on product behavior and engineering decisions rather than internal service volumes, staffing, revenue or live inventory.
