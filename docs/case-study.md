@@ -2,14 +2,16 @@
 
 ## Executive summary
 
-Rumi Wawqi operates weekend restaurant service in Caraz, Peru, normally producing 30–50 plates per day and supporting events of up to approximately 450 plates. Connectivity and infrastructure cannot be assumed, so the operational system must remain useful on an iPad without a server or printer.
+Rumi Wawqi operates weekend restaurant service in Caraz, Peru, with variable demand and occasional higher-volume events. Connectivity and infrastructure cannot be assumed, so the operational system must remain useful on an iPad without depending on a server or printer.
 
 The POS was built around that constraint: coordinate tables, orders, kitchen dispatch, menu stock and cash history locally while avoiding destructive closure actions.
+
+Public documentation intentionally omits live service volumes, staffing, revenue and current inventory. Stock values committed in the application are demo seeds rather than an operating snapshot.
 
 ## Operational context
 
 - Regular weekend service with variable demand.
-- High-volume event service with multiple floor, kitchen and cashier roles.
+- Event service with multiple floor, kitchen and cashier roles.
 - Shared responsibility across service, runners, kitchen and cashiers.
 - Limited tolerance for setup complexity during opening preparation.
 - Internet-independent operation is more valuable than cloud sophistication.
@@ -60,7 +62,8 @@ Automated regression tests protect the three highest-risk invariants:
 - Receipt generation and physical printing are not implemented.
 - Recovery import needs schema validation and conflict handling.
 
+These limitations describe the product boundary, not the live configuration, staffing or financial state of the restaurant.
+
 ## Next measurable increment
 
 [Issue #1](https://github.com/Jsantiagom11/rumi-wawqi-pos/issues/1) separates backup, shift finalization and recovery into an auditable cashier workflow.
-
