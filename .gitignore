@@ -2,3 +2,17 @@
 *.log
 coverage/
 
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.*
+
+# Operational exports/backups must stay off-repo
+backups/
+exports/
+private/
+*.backup.json
+*.db
+*.sqlite
+*.sqlite3
