@@ -161,6 +161,8 @@
         </div>
     </div>
 
+    <input id="backup-file" type="file" accept="application/json,.json" hidden>
+    <script src="core.js"></script>
     <script>
         const CARTA_ESTANDAR = [
             { id: "p1", nombre: "Ensalada de Tarwi", precio: 10.00, stock: 15 },
@@ -178,31 +180,52 @@
             { id: "b6", nombre: "Agua Mineral", precio: 3.00, stock: 40 }
         ];
 
-        let db = JSON.parse(localStorage.getItem('rumi_wawqi_offline_db')) || {
-            platos: JSON.parse(JSON.stringify(CARTA_ESTANDAR)),
-            mesas: [{ id: "M1", nombre: "Mesa 1", estado: 'libre', orden: [], detalle: "" }],
-            cocina: [],
-            historial: [],
-            cierres: [],
-            schemaVersion: 2
-        };
+        const DB_KEY = 'rumi_wawqi_offline_db';
+        const { escapeHtml, uniqueId } = RumiCore;
+        const loaded = RumiCore.loadDatabase(localStorage, DB_KEY, CARTA_ESTANDAR);
+        let db = loaded.db;
+        let persistedSnapshot = RumiCore.clone(db);
 
-        // Migración no destructiva para instalaciones que ya operan en el iPad.
-        db.historial = Array.isArray(db.historial) ? db.historial : [];
-        db.cierres = Array.isArray(db.cierres) ? db.cierres : [];
-        db.schemaVersion = 2;
+        if (loaded.recovery) {
+            const quarantineKey = `${DB_KEY}_quarantine_${Date.now()}`;
+            try {
+                localStorage.setItem(quarantineKey, loaded.recovery.raw);
+                localStorage.removeItem(DB_KEY);
+                alert(`⚠️ Los datos locales estaban dañados. Se conservaron en cuarentena y se abrió una caja vacía. Motivo: ${loaded.recovery.message}`);
+            } catch (_) {
+                alert(`🚫 Los datos locales están dañados y no pudieron ponerse en cuarentena. Restaura un respaldo antes de operar. Motivo: ${loaded.recovery.message}`);
+            }
+        }
 
         let mesaActiva = null;
         let filtroMesaActual = 'todas';
 
-        function syncDB() {
-            localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
-            renderArchitecture();
+        function syncDB(shouldRender = true) {
+            try {
+                db = RumiCore.commitDatabase(localStorage, DB_KEY, db, persistedSnapshot.revision);
+                persistedSnapshot = RumiCore.clone(db);
+                if (shouldRender) renderArchitecture();
+                return true;
+            } catch (error) {
+                db = RumiCore.clone(persistedSnapshot);
+                if (error instanceof RumiCore.StorageConflictError) {
+                    const refreshed = RumiCore.loadDatabase(localStorage, DB_KEY, CARTA_ESTANDAR);
+                    if (!refreshed.recovery) {
+                        db = refreshed.db;
+                        persistedSnapshot = RumiCore.clone(db);
+                    }
+                    alert("⚠️ Otra pestaña modificó la caja. Se recargó la versión más reciente; repite la acción.");
+                } else {
+                    alert("🚫 No se pudo guardar la operación. No se aplicó ningún cambio.");
+                }
+                if (shouldRender) renderArchitecture();
+                return false;
+            }
         }
 
         const Atoms = {
             InputMesa: (id, nombre, disabled) => `
-                <input type="text" class="mesa-nombre-edit" value="${nombre}" 
+                <input type="text" class="mesa-nombre-edit" value="${escapeHtml(nombre)}"
                     onclick="event.stopPropagation();" 
                     onblur="Organisms.ColumnMesas.handleRename('${id}', this.value)"
                     ${disabled ? 'disabled' : ''} />
@@ -227,7 +250,7 @@
                 return `
                     <div class="plato-row ${isAgotado}" onclick="Organisms.ColumnCarta.handleAdd('${p.id}')">
                         <div class="plato-info">
-                            <span class="plato-nombre">${p.nombre}</span>
+                            <span class="plato-nombre">${escapeHtml(p.nombre)}</span>
                             <span class="plato-meta">S/ ${p.precio.toFixed(2)} — ${p.stock === 0 ? 'AGOTADO' : 'Stock: '+p.stock}</span>
                         </div>
                         <div class="stock-control">
@@ -246,7 +269,7 @@
                     if (ultima && (ultima.estado === 'ocupada' || ultima.orden.length > 0) && db.mesas.length < 24) {
                         const sig = db.mesas.length + 1;
                         db.mesas.push({ id: `M${sig}`, nombre: `Mesa ${sig}`, estado: 'libre', orden: [], detalle: "" });
-                        localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
+                        syncDB(false);
                     }
 
                     let html = `
@@ -353,7 +376,7 @@
                         exist.cantidad += cant;
                     } else {
                         m.orden.push({ 
-                            id: 'm_' + Date.now(), 
+                        id: uniqueId('manual'),
                             nombre: nombrePool, 
                             precio: pre, 
                             cantidad: cant, 
@@ -369,6 +392,10 @@
                     syncDB();
                 },
                 handleResetStock() {
+                    if (RumiCore.activeWork(db).tables.length > 0) {
+                        alert("🚫 No se puede restablecer stock mientras existan mesas activas.");
+                        return;
+                    }
                     if(confirm("¿Restablecer stock completo de la carta?")) {
                         db.platos = JSON.parse(JSON.stringify(CARTA_ESTANDAR)); syncDB();
                     }
@@ -381,8 +408,8 @@
                     
                     let tktHtml = db.cocina.map(c => `
                         <div class="ticket-cocina">
-                            <div class="ticket-header"><span>${c.nombreMesa}</span><span style="color:var(--success); font-weight:bold; cursor:pointer;" onclick="Organisms.ColumnDespacho.handleClearTicket(${c.id})">✓ Listo</span></div>
-                            <div style="font-size:0.8rem; white-space:pre-line;">${c.desc}</div>
+                            <div class="ticket-header"><span>${escapeHtml(c.nombreMesa)}</span><span style="color:var(--success); font-weight:bold; cursor:pointer;" onclick="Organisms.ColumnDespacho.handleClearTicket('${c.id}')">✓ Listo</span></div>
+                            <div style="font-size:0.8rem; white-space:pre-line;">${escapeHtml(c.desc)}</div>
                         </div>
                     `).join('');
 
@@ -405,7 +432,7 @@
                                 return `
                                     <tr ${estiloFila}>
                                         <td style="padding: 12px 4px;">
-                                            ${o.nombre} ${o.enviadoCocina ? '<span style="color:var(--success); font-size:0.75rem;">✓</span>' : ''}
+                                            ${escapeHtml(o.nombre)} ${o.enviadoCocina ? '<span style="color:var(--success); font-size:0.75rem;">✓</span>' : ''}
                                         </td>
                                         <td>
                                             <div style="display:flex; align-items:center; gap:6px;">
@@ -431,7 +458,7 @@
                             <div style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
                                 <span style="font-size:0.85rem; font-weight:600; color:var(--accent);">${titulo}</span>
                                 <div style="margin: 6px 0; display:${displayDetalle};">
-                                    <textarea id="detalles-mesa" class="custom-textarea" placeholder="Especificaciones de cocina..." oninput="Organisms.ColumnDespacho.handleLiveNotes(this.value)">${txtDetalle}</textarea>
+                                    <textarea id="detalles-mesa" class="custom-textarea" placeholder="Especificaciones de cocina..." oninput="Organisms.ColumnDespacho.handleLiveNotes(this.value)">${escapeHtml(txtDetalle)}</textarea>
                                 </div>
                                 <div class="scrollable" style="background:rgba(0,0,0,0.15); padding:6px; border-radius:4px; border: 1px solid var(--border);">
                                     <table>
@@ -448,7 +475,9 @@
                                 <button class="btn-action btn-danger" onclick="Organisms.ColumnDespacho.handleCloseMesa()">Cerrar y liberar mesa</button>
                                 <div style="margin-top:10px; border-top:1px dashed var(--border); padding-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
                                     <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem;" onclick="analyticsManager.renderReporteVisual()">Ver Reporte</button>
-                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem; border-color:var(--success); color:var(--success);" onclick="analyticsManager.exportarCierreCaja()">Respaldar turno</button>
+                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem; border-color:var(--success); color:var(--success);" onclick="shiftManager.respaldarTurno()">Respaldar turno</button>
+                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem; border-color:var(--warning); color:var(--warning);" onclick="shiftManager.finalizarTurno()">Finalizar turno</button>
+                                    <button class="btn-action btn-pool" style="height:32px; margin:0; font-size:0.75rem;" onclick="shiftManager.seleccionarRespaldo()">Restaurar respaldo</button>
                                 </div>
                             </div>
                         </div>
@@ -491,7 +520,7 @@
                 handleLiveNotes(text) {
                     if(!mesaActiva) return;
                     db.mesas.find(x => x.id === mesaActiva).detalle = text;
-                    localStorage.setItem('rumi_wawqi_offline_db', JSON.stringify(db));
+                    syncDB(false);
                 },
                 
                 handleClearTicket(id) { db.cocina = db.cocina.filter(c => c.id !== id); syncDB(); },
@@ -503,7 +532,7 @@
                     if(nuevos.length === 0) { alert("No hay platos nuevos para comandar."); return; }
 
                     db.cocina.push({
-                        id: Date.now(),
+                        id: uniqueId('kitchen'),
                         creadoEn: new Date().toISOString(),
                         nombreMesa: m.nombre || m.id,
                         desc: nuevos.map(n => `${n.cantidad}x ${n.nombre}`).join(', ') + (m.detalle ? `\n⚠️ ${m.detalle}` : '')
@@ -516,11 +545,15 @@
                     if(!mesaActiva) return;
                     const m = db.mesas.find(x => x.id === mesaActiva);
                     if(m.orden.length === 0) { this.reset(m); return; }
+                    if (m.orden.some(item => !item.enviadoCocina)) {
+                        alert("🚫 Hay ítems que todavía no fueron comandados a cocina.");
+                        return;
+                    }
 
                     const total = m.orden.reduce((a,b)=>a+(b.precio*b.cantidad),0);
                     if(confirm(`¿Cerrar Cuenta? Total: S/ ${total.toFixed(2)}`)) {
                         db.historial.push({
-                            id: Date.now(),
+                            id: uniqueId('sale'),
                             cerradoEn: new Date().toISOString(),
                             fecha: new Date().toLocaleString('es-PE'),
                             mesa: m.nombre || m.id,
@@ -554,7 +587,7 @@
                 document.querySelector('#tabla-ranking tbody').innerHTML = Object.keys(ranking)
                     .map(k => ({n: k, c: ranking[k].c, t: ranking[k].t}))
                     .sort((a,b)=>b.t - a.t)
-                    .map(x => `<tr><td>${x.n}</td><td style="text-align:center;">${x.c}</td><td style="text-align:right; color:var(--success);">S/ ${x.t.toFixed(2)}</td></tr>`)
+                    .map(x => `<tr><td>${escapeHtml(x.n)}</td><td style="text-align:center;">${x.c}</td><td style="text-align:right; color:var(--success);">S/ ${x.t.toFixed(2)}</td></tr>`)
                     .join('');
 
                 this.renderGrafico();
@@ -564,7 +597,7 @@
                 const bloques = { "11-13": 0, "13-15": 0, "15-17": 0, "Otros": 0 };
                 db.historial.forEach(h => {
                     try {
-                        const hros = parseInt(h.fecha.split(' ')[1].split(':')[0]);
+                        const hros = new Date(h.cerradoEn).getHours();
                         if(hros >= 11 && hros < 13) bloques["11-13"] += h.total;
                         else if(hros >= 13 && hros < 15) bloques["13-15"] += h.total;
                         else if(hros >= 15 && hros < 17) bloques["15-17"] += h.total;
@@ -580,27 +613,59 @@
                     </div>
                 `).join('');
             },
-            exportarCierreCaja() {
-                if(db.historial.length === 0) { alert("No hay datos históricos que exportar en este turno."); return; }
-                if(confirm("¿Descargar un respaldo del turno? El historial permanecerá guardado en el iPad.")) {
-                    const cierre = {
-                        id: `cierre_${Date.now()}`,
-                        generadoEn: new Date().toISOString(),
-                        cantidadTickets: db.historial.length,
-                        total: db.historial.reduce((s, venta) => s + venta.total, 0),
-                        ventas: JSON.parse(JSON.stringify(db.historial))
-                    };
-                    db.cierres.push(cierre);
-                    const blob = new Blob([JSON.stringify(cierre, null, 2)], {type: "application/json"});
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `respaldo_rumi_wawqi_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-                    a.click();
-                    URL.revokeObjectURL(a.href);
-                    syncDB();
+            cerrarModal() { document.getElementById('modal-reporte').style.display = 'none'; }
+        };
+
+        const shiftManager = {
+            descargar(backup) {
+                const blob = new Blob([JSON.stringify(backup, null, 2)], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `respaldo_rumi_wawqi_${backup.generatedAt.replace(/[:.]/g, '-')}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+            },
+            respaldarTurno() {
+                if(db.historial.length === 0) { alert("No hay ventas que respaldar en este turno."); return; }
+                const backup = RumiCore.createBackup(db);
+                this.descargar(backup);
+                alert("✓ Respaldo generado. El historial continúa activo en el iPad.");
+            },
+            finalizarTurno() {
+                const work = RumiCore.activeWork(db);
+                if (work.tables.length || work.kitchenTickets) {
+                    alert(`🚫 No se puede finalizar: ${work.tables.length} mesa(s) activa(s) y ${work.kitchenTickets} ticket(s) de cocina pendientes.`);
+                    return;
+                }
+                if(db.historial.length === 0) { alert("No hay ventas que finalizar."); return; }
+                const total = db.historial.reduce((sum, sale) => sum + sale.total, 0);
+                const backup = RumiCore.createBackup(db);
+                this.descargar(backup);
+                if (!confirm(`RESPALDO DESCARGADO\n\nSe archivarán ${db.historial.length} tickets por S/ ${total.toFixed(2)}.\n¿Confirmas la finalización del turno?`)) return;
+                try {
+                    const result = RumiCore.finalizeShift(db, backup);
+                    db = result.next;
+                    if (syncDB()) alert(`✓ Turno finalizado: ${result.closure.ticketCount} tickets · S/ ${result.closure.total.toFixed(2)}`);
+                } catch (error) {
+                    alert(`🚫 No se finalizó el turno: ${error.message}`);
                 }
             },
-            cerrarModal() { document.getElementById('modal-reporte').style.display = 'none'; }
+            seleccionarRespaldo() { document.getElementById('backup-file').click(); },
+            async restaurarArchivo(file) {
+                try {
+                    const backup = JSON.parse(await file.text());
+                    const recovered = RumiCore.recoverBackup(db, backup, CARTA_ESTANDAR);
+                    const total = recovered.historial.reduce((sum, sale) => sum + sale.total, 0);
+                    if (!confirm(`Restaurar ${recovered.historial.length} tickets por S/ ${total.toFixed(2)}? La caja actual será reemplazada.`)) return;
+                    db = recovered;
+                    if (syncDB()) alert("✓ Respaldo restaurado y validado.");
+                } catch (error) {
+                    alert(`🚫 Respaldo rechazado: ${error.message}`);
+                }
+            }
         };
 
         function renderArchitecture() {
@@ -610,6 +675,21 @@
         }
 
         setInterval(() => { document.getElementById('reloj').innerText = new Date().toLocaleTimeString(); }, 1000);
+        document.getElementById('backup-file').addEventListener('change', async (event) => {
+            const file = event.target.files && event.target.files[0];
+            event.target.value = '';
+            if (file) await shiftManager.restaurarArchivo(file);
+        });
+        window.addEventListener('storage', (event) => {
+            if (event.key !== DB_KEY || event.newValue === null) return;
+            const refreshed = RumiCore.loadDatabase(localStorage, DB_KEY, CARTA_ESTANDAR);
+            if (!refreshed.recovery && refreshed.db.revision > persistedSnapshot.revision) {
+                db = refreshed.db;
+                persistedSnapshot = RumiCore.clone(db);
+                renderArchitecture();
+                alert("ℹ️ La caja se actualizó desde otra pestaña.");
+            }
+        });
         renderArchitecture();
     </script>
 </body>
