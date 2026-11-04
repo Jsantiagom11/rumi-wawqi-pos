@@ -23,6 +23,7 @@ test('a completed offline sale survives a reload without duplicating its totals'
   assert.equal(before.historial[0].total, 10);
   assert.equal(before.historial[0].items[0].cantidad, 1);
   assert.ok(!Number.isNaN(Date.parse(before.historial[0].cerradoEn)));
+  assert.ok(!Number.isNaN(Date.parse(before.historial[0].items[0].creadoEn)), 'sale item must retain original order timestamp');
 
   await context.setOffline(false);
   await page.reload();
@@ -44,6 +45,7 @@ test('a downloaded shift backup retains sales on device and in the JSON artifact
   assert.equal(backup.cantidadTickets, 1);
   assert.equal(backup.total, 10);
   assert.equal(backup.ventas.length, 1);
+  assert.ok(!Number.isNaN(Date.parse(backup.ventas[0].items[0].creadoEn)), 'JSON backup must retain item timestamp');
 
   const before = await readLocalDatabase(page);
   assert.equal(before.historial.length, 1);
