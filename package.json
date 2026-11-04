@@ -7,6 +7,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:domain": "node --test tests/shift-core.test.mjs tests/two-phase.test.mjs tests/cli.test.mjs tests/recovery-cli.test.mjs",
     "test:regression": "node --test tests/regression.test.mjs",
+    "test:e2e": "playwright test",
     "check": "node --check lib/shift-core.mjs && node --check cli/rumi-lab.mjs && npm test",
     "serve": "python3 -m http.server 8080 --directory app",
     "audit": "node cli/rumi-lab.mjs audit",
@@ -14,6 +15,9 @@
     "recover": "node cli/rumi-lab.mjs recover",
     "scenario": "node cli/rumi-lab.mjs scenario",
     "finalize:simulate": "node cli/rumi-lab.mjs simulate-finalize"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
   },
   "engines": {
     "node": ">=20"

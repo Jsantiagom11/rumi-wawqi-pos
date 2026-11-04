@@ -4,13 +4,13 @@
 ![Offline first](https://img.shields.io/badge/architecture-offline--first-10283a)
 ![License](https://img.shields.io/badge/license-MIT-4fe1a1)
 
-Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without a server, printer or permanent internet connection.
+Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without requiring a server, printer or permanent internet connection.
 
 **[Read the real operational case study →](docs/case-study.md)**
 
 ## Business problem
 
-Rumi Wawqi serves regular weekends and high-volume events. The operation needs a resilient way to coordinate tables, kitchen tickets, menu stock, cash closure and sales reporting even when connectivity is unreliable.
+Rumi Wawqi handles variable weekend demand and occasional higher-volume events. The operation needs a resilient way to coordinate tables, kitchen tickets, menu stock, cash closure and sales reporting even when connectivity is unreliable.
 
 ## What the system does
 
@@ -21,9 +21,12 @@ Rumi Wawqi serves regular weekends and high-volume events. The operation needs a
 - Cash totals, average ticket and product mix
 - Offline persistence through `localStorage`
 - Non-destructive JSON shift backups
-- ISO timestamps and audit-friendly closure snapshots
+- ISO timestamps retained per order line in closed sales and shift backups
+- Audit-friendly closure snapshots
 - WSL domain engine for explicit shift finalization/recovery
 - Accounting Lab snapshots derived from real shift data
+
+The stock values committed in the source are **demo seed values only**. Real operating stock and sales history stay on the device and are not versioned in this repository.
 
 ## Operational flow
 
@@ -79,11 +82,16 @@ See **[docs/WSL_RUNBOOK.md](docs/WSL_RUNBOOK.md)** for the complete operational 
 npm test
 # or
 make check
+
+# Browser regression (requires Playwright/Chromium installation)
+npm ci
+npx playwright install chromium
+npm run test:e2e
 ```
 
 The suite now combines legacy browser regression checks with behavioral domain/CLI tests. It protects active-order safety, pending kitchen work, two-phase finalization, immutable pre-close backups, stale/foreign/corrupt backup rejection, schema migration, integer-cent monetary calculations, recovery guards and deterministic Accounting Lab scenarios.
 
-CI runs the same `make check` contract on Node 20 and 22.
+CI runs `make check` on Node 20 and 22, publication/privacy checks, and a separate Chromium browser-regression job.
 
 ## Shift finalization contract
 
@@ -151,4 +159,4 @@ See [CHANGELOG.md](CHANGELOG.md) for released capabilities and safety changes.
 
 ## Context
 
-This is a real operational product, not a synthetic tutorial. It demonstrates offline product design, workflow automation, inventory control, resilience and delivery decisions under practical infrastructure constraints.
+This is a real operational product, not a synthetic tutorial. Public documentation intentionally focuses on product behavior and engineering decisions rather than internal service volumes, staffing, revenue or live inventory.
