@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "platos": [
+    {"id": "p1", "nombre": "Trucha Frita Entera", "precio": 35, "stock": 12},
+    {"id": "b1", "nombre": "Gaseosa (1 L)", "precio": 10, "stock": 20}
+  ],
+  "mesas": [
+    {"id": "M1", "nombre": "Mesa 1", "estado": "libre", "orden": [], "detalle": ""}
+  ],
+  "cocina": [],
+  "historial": [
+    {
+      "id": 1001,
+      "cerradoEn": "2026-08-26T19:00:00.000Z",
+      "fecha": "26/8/2026, 2:00:00 p. m.",
+      "mesa": "Mesa 1",
+      "items": [
+        {"nombre": "Trucha Frita Entera", "cantidad": 2, "precio": 35},
+        {"nombre": "Gaseosa (1 L)", "cantidad": 1, "precio": 10}
+      ],
+      "total": 80
+    }
+  ],
+  "cierres": []
+}

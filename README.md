@@ -4,7 +4,9 @@
 ![Offline first](https://img.shields.io/badge/architecture-offline--first-10283a)
 ![License](https://img.shields.io/badge/license-MIT-4fe1a1)
 
-Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without requiring a server, printer or permanent internet connection.
+Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. The repository includes a browser reference UI and a separately tested shift-domain engine.
+
+> **Production source warning (2026-11-04):** The active Vercel deployment includes a different PWA file tree (`src/index.html`, service worker, manifest, icons) that is not fully present in this repository. The commit metadata alone is insufficient to reproduce that deployment. Do **not** deploy `app/index.html` over the production POS. See [production provenance and release gate](docs/PRODUCTION_RELEASE_GATE.md).
 
 **[Read the real operational case study →](docs/case-study.md)**
 
@@ -21,7 +23,10 @@ Rumi Wawqi handles variable weekend demand and occasional higher-volume events. 
 - Cash totals, average ticket and product mix
 - Offline persistence through `localStorage`
 - Non-destructive JSON shift backups
-- ISO timestamps and audit-friendly closure snapshots
+- ISO timestamps retained per order line in closed sales and shift backups
+- Audit-friendly closure snapshots
+- WSL domain engine for explicit shift finalization/recovery
+- Accounting Lab snapshots derived from real shift data
 
 The stock values committed in the source are **demo seed values only**. Real operating stock and sales history stay on the device and are not versioned in this repository.
 
@@ -34,39 +39,108 @@ flowchart TD
     C --> D[Send kitchen ticket]
     D --> E[Close table]
     E --> F[Sales history]
-    F --> G[Shift backup]
+    F --> G[Prepare full backup]
+    G --> H{State unchanged?}
+    H -- No --> G
+    H -- Yes --> I[Finalize shift]
+    I --> J[Archive sales]
+    I --> K[Accounting snapshot]
 ```
 
 ## Run locally
 
-The application has no runtime dependencies.
+The browser application has no runtime dependencies.
 
 ```bash
 npm run serve
 ```
 
-Open `http://localhost:8080`. It can also run directly from `app/index.html`.
+Open `http://localhost:8080`. This serves the **repository reference UI**, not a verified reconstruction of the live PWA.
 
-## Test
+## WSL workflow
 
-Requires Node.js 20+.
+Requires Node.js 20+; no `npm install` is needed because the validation/CLI layer uses only Node built-ins.
+
+```bash
+make check
+make audit-demo
+make finalize-demo
+```
+
+Useful commands:
+
+```bash
+npm run audit -- fixtures/sample-shift-v2.json
+npm run recovery:check -- /path/to/backup.json
+npm run scenario -- /path/to/accounting-snapshot.json
+npm run finalize:simulate -- /path/to/database.json /tmp/rumi-close
+```
+
+See **[docs/WSL_RUNBOOK.md](docs/WSL_RUNBOOK.md)** for the complete operational and recovery workflow.
+
+## Tests
 
 ```bash
 npm test
+# or
+make check
+
+# Browser regression (requires Playwright/Chromium installation)
+npm ci
+npx playwright install chromium
+npm run test:e2e
 ```
 
-The regression suite protects the highest-risk invariants: backups cannot erase sales, operational events retain timestamps and legacy iPad data migrates without destructive resets.
+The suite now combines legacy browser regression checks with behavioral domain/CLI tests. It protects active-order safety, pending kitchen work, two-phase finalization, immutable pre-close backups, stale/foreign/corrupt backup rejection, schema migration, integer-cent monetary calculations, recovery guards and deterministic Accounting Lab scenarios.
+
+CI runs `make check` on Node 20 and 22, publication/privacy checks, and a separate Chromium browser-regression job.
+
+## Shift finalization contract
+
+The WSL/domain engine uses a fail-closed two-phase protocol:
+
+1. Validate the current shift.
+2. Refuse finalization while tables or kitchen tickets are active.
+3. Create a complete database snapshot and integrity checksum.
+4. Revalidate that the state has not changed since the snapshot.
+5. Archive closed sales, preserve previous closures, open a new shift and generate an Accounting Lab snapshot.
+
+A backup generated before later state changes cannot authorize finalization.
+
+## Recovery contract
+
+Recovery validates backup kind/version, schema compatibility, checksum and internal sale totals. It refuses to overwrite a currently active table unless an explicit override is supplied by the caller.
+
+The checksum is intended for accidental corruption detection, not cryptographic authentication.
+
+## Accounting Lab
+
+The educational layer is intentionally outside the critical closing path. A snapshot records real tickets, gross sales, item count and product mix. Training scenarios may derive a hypothetical discrepancy, but the output clearly separates `realBasis` from `hypothetical` values so a simulated variance cannot be confused with a real shortage or surplus.
 
 ## Architecture decisions
 
 | Decision | Reason | Trade-off |
 |---|---|---|
-| Single-file application | Simple iPad deployment and offline recovery | Larger source file |
-| `localStorage` | No server or account required | Device-local durability |
+| Single-file reference browser application | Simple local testing | Does not fully represent the deployed PWA |
+| Pure Node domain engine | Testable WSL contract with zero dependencies | UI integration is a separate release step |
+| `localStorage` in repository reference UI | No server or account required | Does not establish the storage model of the deployed PWA |
 | Stock reserved on order | Prevents overselling during service | Voided orders must restore stock |
-| Non-destructive backups | Protects revenue history | Requires explicit archival policy |
+| Two-phase finalization | Backup exists before archival mutation | Adds an explicit prepare/commit protocol |
+| Integer cents | Avoid floating-point cash drift | Boundary conversion is required |
+| Full snapshot + checksum | Detect corrupt/stale recovery artifacts | Checksum is not a security signature |
 
-## Safety improvements in v2
+## Safety improvements
+
+### v2.1 domain layer
+
+- Complete pre-finalization database snapshots.
+- Active-table and pending-kitchen blockers.
+- Stale/foreign/corrupt backup rejection.
+- Recovery schema/integrity validation.
+- Accounting Lab snapshot generation outside the critical close path.
+- WSL CLI, Makefile and expanded rainy-day regression suite.
+
+### v2 browser baseline
 
 - Replaced destructive **Bajar Caja** behavior with persistent shift backups.
 - Added ISO timestamps to sales, orders and kitchen tickets.
@@ -76,12 +150,12 @@ The regression suite protects the highest-risk invariants: backups cannot erase 
 
 ## Roadmap
 
-- Explicit shift-finalization workflow with cashier authorization
+- Wire the tested v3 shift engine into the single-file iPad UI without breaking direct-file deployment
 - IndexedDB persistence and automatic backup rotation
 - Receipt PDF generation and optional print adapter
 - Payment-method reconciliation
 - Inventory movements and waste tracking
-- Import/export recovery screen
+- In-app recovery screen with explicit authorization
 
 See [CHANGELOG.md](CHANGELOG.md) for released capabilities and safety changes.
 
