@@ -524,7 +524,7 @@
                             cerradoEn: new Date().toISOString(),
                             fecha: new Date().toLocaleString('es-PE'),
                             mesa: m.nombre || m.id,
-                            items: m.orden.map(o => ({ nombre: o.nombre, cantidad: o.cantidad, precio: o.precio })),
+                            items: m.orden.map(o => ({ nombre: o.nombre, cantidad: o.cantidad, precio: o.precio, creadoEn: o.creadoEn ?? null })),
                             total: total
                         });
                         this.reset(m);
