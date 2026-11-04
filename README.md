@@ -4,7 +4,9 @@
 ![Offline first](https://img.shields.io/badge/architecture-offline--first-10283a)
 ![License](https://img.shields.io/badge/license-MIT-4fe1a1)
 
-Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. It runs locally on an iPad without requiring a server, printer or permanent internet connection.
+Offline-first restaurant operations dashboard designed for weekend service and events in Caraz, Peru. The repository includes a browser reference UI and a separately tested shift-domain engine.
+
+> **Production source warning (2026-11-04):** The active Vercel deployment includes a different PWA file tree (`src/index.html`, service worker, manifest, icons) that is not fully present in this repository. The commit metadata alone is insufficient to reproduce that deployment. Do **not** deploy `app/index.html` over the production POS. See [production provenance and release gate](docs/PRODUCTION_RELEASE_GATE.md).
 
 **[Read the real operational case study →](docs/case-study.md)**
 
@@ -53,7 +55,7 @@ The browser application has no runtime dependencies.
 npm run serve
 ```
 
-Open `http://localhost:8080`. The current production UI can also run directly from `app/index.html`.
+Open `http://localhost:8080`. This serves the **repository reference UI**, not a verified reconstruction of the live PWA.
 
 ## WSL workflow
 
@@ -119,9 +121,9 @@ The educational layer is intentionally outside the critical closing path. A snap
 
 | Decision | Reason | Trade-off |
 |---|---|---|
-| Single-file browser application | Simple iPad deployment and offline recovery | Larger UI source file |
+| Single-file reference browser application | Simple local testing | Does not fully represent the deployed PWA |
 | Pure Node domain engine | Testable WSL contract with zero dependencies | UI integration is a separate release step |
-| `localStorage` in current UI | No server or account required | Device-local durability |
+| `localStorage` in repository reference UI | No server or account required | Does not establish the storage model of the deployed PWA |
 | Stock reserved on order | Prevents overselling during service | Voided orders must restore stock |
 | Two-phase finalization | Backup exists before archival mutation | Adds an explicit prepare/commit protocol |
 | Integer cents | Avoid floating-point cash drift | Boundary conversion is required |
