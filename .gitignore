@@ -1,6 +1,10 @@
 .DS_Store
 *.log
 coverage/
+node_modules/
+playwright-report/
+test-results/
+.worktrees/
 
 # Local configuration and secrets
 .env
