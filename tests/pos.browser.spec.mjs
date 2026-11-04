@@ -6,7 +6,7 @@ async function captureDemoSale(page, context, offlineBeforeClose = false) {
   await page.goto('/');
   await page.locator('.mesa-btn').first().click({ position: { x: 5, y: 5 } });
   await page.locator('.plato-row').first().click({ position: { x: 5, y: 5 } });
-  await expect(page.getByText('S/ 10.00', { exact: true })).toBeVisible();
+  await expect(page.locator('#org-despacho span').filter({ hasText: /^S\/ 10\.00$/ })).toBeVisible();
   if (offlineBeforeClose) await context.setOffline(true);
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Cerrar y liberar mesa' }).click();
